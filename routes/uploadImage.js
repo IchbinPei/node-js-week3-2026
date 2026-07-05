@@ -5,7 +5,14 @@ const { formidable } = require('formidable');
 // ⚠️ 寫作業前先 `npm start` 打開 http://localhost:3000/docs 看 Swagger UI 的規格。
 // 💡 /* 作答區 ... */ 是答題提示區，取消註解後填入你的程式碼。
 
-const uploadDir = process.env.UPLOAD_DIR || '/tmp/uploads';
+//const uploadDir = process.env.UPLOAD_DIR || '/tmp/uploads';
+//根目錄在D槽，上面寫法會被ban
+const path = require('node:path');
+
+const uploadDir = process.env.UPLOAD_DIR
+  ? path.resolve(process.env.UPLOAD_DIR)
+  : path.join(__dirname, '../uploads/member-avatars');
+
 const maxFileSize = (Number(process.env.MAX_FILE_SIZE_MB) || 5) * 1024 * 1024;
 
 fs.mkdirSync(uploadDir, { recursive: true });
@@ -25,5 +32,40 @@ const router = express.Router();
 /* 作答區
 router.METHOD('PATH', (req, res) => { ... });
 */
+
+router.post('/',(req,res)=>{
+    const form = formidable({
+        uploadDir,
+        keepExtensions: true,
+        maxFileSize,
+    });
+    form.parse(req,(err, fields,files)=>{
+        if(err){
+            return res.status(500).json({
+                error: err.message
+            })
+        }
+
+
+        //取得檔案
+        const file = Array.isArray(files.image)
+            ? files.image[0]
+            : files.image;//如果 files.image 存在 → 取第 0 個，如果不存在 → 回 undefined
+
+        //如果沒有檔案上傳要報錯
+        if(!file){
+            return res.status(400).json({
+                error:'No file upload'
+            });
+        }
+
+        //回傳正確結果
+        return res.status(200).json({
+            filename: file.originalFilename,
+            sizeKB:Math.round(file.size/1024),
+            savedPath:file.filepath
+        });
+    });
+})
 
 module.exports = router;
